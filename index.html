@@ -36,7 +36,7 @@
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
   <!-- 访问码模态框 -->
-  <div id="accessModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div id="accessModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4">
       <h2 id="modalTitle" class="text-xl font-bold text-gray-800 text-center mb-4 flex items-center justify-center">
         <span class="mr-2">🔒</span> 获取 <span id="modalDate">2025-12-29</span> 的访问权限
@@ -124,7 +124,6 @@
       'xunlei_m', 'kuaitu_m', 'mobile_m'
     ];
 
-    // ✅ 30天访问码与链接（紧凑格式：日期 → {link, code}）
     const ACCESS_MAP = {
       '2025-12-28': { link: 'https://pan.quark.cn/s/5fb3ce78f0c3', code: '8609' },
       '2025-12-29': { link: 'https://pan.quark.cn/s/915f812cd18e', code: '6180' },
@@ -167,6 +166,7 @@
     const mainContainer = document.getElementById('mainContainer');
     const listView = document.getElementById('listView');
     const typeNav = document.getElementById('typeNav');
+    const accessModal = document.getElementById('accessModal');
 
     let resources = [];
     let verified = false;
@@ -190,10 +190,12 @@
       return cleaned.trim();
     }
 
-    // === 缓存 & 验证 ===
-    function checkAccess() {
-      const today = new Date().toISOString().split('T')[0];
-      return localStorage.getItem('lastVerifiedDate') === today;
+    // ✅ 获取东八区日期（关键修复）
+    function getBeijingDate() {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const beijingTime = new Date(utc + (8 * 3600000));
+      return beijingTime.toISOString().split('T')[0];
     }
 
     function enableSearch() {
@@ -205,43 +207,37 @@
       verified = true;
     }
 
-    // ✅ 关键修复：动态更新模态框中的日期和链接
-    function updateAccessModal() {
-      const today = new Date().toISOString().split('T')[0];
+    // ✅ 更新模态框内容（接收 today 参数）
+    function updateAccessModal(today) {
       const record = ACCESS_MAP[today];
-
       if (!record) {
-        alert('系统维护中，请稍后再试。');
+        alert(`系统未配置 ${today} 的访问码，请稍后再试。`);
         return;
       }
-
-      // 更新标题中的日期
       document.getElementById('modalDate').textContent = today;
       document.getElementById('linkDate').textContent = today;
-
-      // 更新链接
       document.getElementById('accessLink').href = record.link;
     }
 
-    // ✅ 强制检查是否进入新一天，并刷新模态框
+    // ✅ 检查并强制验证今日访问（核心逻辑）
     function checkAndEnforceTodayAccess() {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getBeijingDate();
       const lastVerified = localStorage.getItem('lastVerifiedDate');
-      if (lastVerified !== today) {
-        verified = false;
-        searchInput.disabled = true;
-        searchInput.classList.add('disabled-input');
-        searchBtn.disabled = true;
-        searchBtn.classList.add('disabled-btn');
-        document.getElementById('accessModal').classList.remove('hidden');
 
-        // ✅ 关键：确保弹出的是今天的链接和日期
-        updateAccessModal();
+      if (lastVerified !== today) {
+        // 未验证或不是今天 → 弹窗
+        updateAccessModal(today);
+        accessModal.style.display = 'flex'; // 强制显示
+      } else {
+        // 已验证 → 启用功能
+        enableSearch();
+        loadData();
       }
     }
 
     // === 加载数据 ===
     function loadData() {
+      if (resources.length > 0) return; // 防止重复加载
       loadingDiv.classList.remove('hidden');
       fetch('./data.json?t=' + Date.now())
         .then(res => res.ok ? res.json() : Promise.reject('无法加载 data.json'))
@@ -375,45 +371,40 @@
     // === 验证逻辑 ===
     document.getElementById('verifyBtn').addEventListener('click', () => {
       const input = document.getElementById('accessCodeInput').value.trim();
-      const today = new Date().toISOString().split('T')[0];
+      const today = getBeijingDate();
       const record = ACCESS_MAP[today];
+      const errorText = document.getElementById('errorText');
 
       if (!record) {
-        document.getElementById('errorText').textContent = `系统错误：未配置 ${today} 的访问码。`;
-        document.getElementById('errorText').classList.remove('hidden');
+        errorText.textContent = `系统错误：未配置 ${today} 的访问码。`;
+        errorText.classList.remove('hidden');
         return;
       }
 
       if (input === record.code) {
-        localStorage.setItem('lastVerifiedDate', today);
-        document.getElementById('accessModal').classList.add('hidden');
+        localStorage.setItem('lastVerifiedDate', today); // ✅ 存东八区日期
+        accessModal.style.display = 'none';
         enableSearch();
         loadData();
       } else {
-        document.getElementById('errorText').textContent = '访问码错误，请重新输入。';
-        document.getElementById('errorText').classList.remove('hidden');
+        errorText.textContent = '访问码错误，请重新输入。';
+        errorText.classList.remove('hidden');
       }
     });
 
     // === 页面加载 ===
     window.addEventListener('DOMContentLoaded', () => {
-      // 初始化模态框内容（显示今天）
-      updateAccessModal();
-
-      // 检查是否需要弹窗
       checkAndEnforceTodayAccess();
 
-      // 监听页面可见性变化 & 窗口聚焦
+      // 监听页面可见性变化（防切换回来时日期变了）
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
           checkAndEnforceTodayAccess();
-          updateAccessModal(); // 确保链接是最新的
         }
       });
 
       window.addEventListener('focus', () => {
         checkAndEnforceTodayAccess();
-        updateAccessModal(); // 确保链接是最新的
       });
     });
 
