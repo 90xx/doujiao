@@ -38,14 +38,14 @@
   <!-- 访问码模态框 -->
   <div id="accessModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4">
-      <h2 class="text-xl font-bold text-gray-800 text-center mb-4 flex items-center justify-center">
-        <span class="mr-2">🔒</span> 获取今日访问权限
+      <h2 id="modalTitle" class="text-xl font-bold text-gray-800 text-center mb-4 flex items-center justify-center">
+        <span class="mr-2">🔒</span> 获取 <span id="modalDate">2025-12-29</span> 的访问权限
       </h2>
       <p class="text-gray-600 text-center mb-6">请前往指定位置获取今日访问码：</p>
 
       <a id="accessLink" href="#" target="_blank" rel="noopener noreferrer"
          class="w-full block text-center py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition mb-6 flex items-center justify-center">
-        <span class="mr-2">👉</span> 点击获取今日访问码
+        <span class="mr-2">👉</span> 点击获取 <span id="linkDate">2025-12-29</span> 访问码
       </a>
 
       <div class="mb-4">
@@ -205,13 +205,27 @@
       verified = true;
     }
 
-    // ✅ 新增：强制检查是否进入新一天
-    function checkAndEnforceTodayAccess() {
+    // ✅ 关键修复：动态更新模态框中的日期和链接
+    function updateAccessModal() {
       const today = new Date().toISOString().split('T')[0];
-      if (!ACCESS_MAP[today]) {
+      const record = ACCESS_MAP[today];
+
+      if (!record) {
         alert('系统维护中，请稍后再试。');
         return;
       }
+
+      // 更新标题中的日期
+      document.getElementById('modalDate').textContent = today;
+      document.getElementById('linkDate').textContent = today;
+
+      // 更新链接
+      document.getElementById('accessLink').href = record.link;
+    }
+
+    // ✅ 强制检查是否进入新一天，并刷新模态框
+    function checkAndEnforceTodayAccess() {
+      const today = new Date().toISOString().split('T')[0];
       const lastVerified = localStorage.getItem('lastVerifiedDate');
       if (lastVerified !== today) {
         verified = false;
@@ -220,6 +234,9 @@
         searchBtn.disabled = true;
         searchBtn.classList.add('disabled-btn');
         document.getElementById('accessModal').classList.remove('hidden');
+
+        // ✅ 关键：确保弹出的是今天的链接和日期
+        updateAccessModal();
       }
     }
 
@@ -380,16 +397,8 @@
 
     // === 页面加载 ===
     window.addEventListener('DOMContentLoaded', () => {
-      const today = new Date().toISOString().split('T')[0];
-      const record = ACCESS_MAP[today];
-
-      if (!record) {
-        alert('系统维护中，请稍后再试。');
-        return;
-      }
-
-      const linkEl = document.getElementById('accessLink');
-      linkEl.href = record.link;
+      // 初始化模态框内容（显示今天）
+      updateAccessModal();
 
       if (checkAccess()) {
         enableSearch();
@@ -398,15 +407,17 @@
         document.getElementById('accessModal').classList.remove('hidden');
       }
 
-      // ✅ 监听页面可见性变化 & 窗口聚焦，防止跨日失效
+      // 监听页面可见性变化 & 窗口聚焦
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
           checkAndEnforceTodayAccess();
+          updateAccessModal(); // 确保链接是最新的
         }
       });
 
       window.addEventListener('focus', () => {
         checkAndEnforceTodayAccess();
+        updateAccessModal(); // 确保链接是最新的
       });
     });
 
