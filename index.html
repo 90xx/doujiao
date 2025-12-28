@@ -140,7 +140,7 @@
 
           // 主网盘
           if (mainLink) {
-            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-blue-600 no-underline">🔗 主网盘</a>`;
+            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 no-underline">🔗 网盘</a>`;
           }
 
           // 分隔线（保留）
@@ -150,12 +150,12 @@
 
           // 备用网盘（改为 🔗 图标）
           if (backupLink) {
-            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-blue-600 no-underline">🔗 备用网盘</a>`;
+            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 no-underline">🔗 备用网盘</a>`;
           }
 
           // 提取码（也改用 🔗）
           if (backupCodeLink) {
-            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-blue-600 no-underline">🔑 备用网盘提取码</a>`;
+            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 no-underline">🔑 备用网盘提取码</a>`;
           }
 
           html += '</div>';
