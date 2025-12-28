@@ -43,7 +43,7 @@
       </h2>
       <p class="text-gray-600 text-center mb-6">请前往指定位置获取今日访问码：</p>
 
-      <a href="https://your-link-to-get-code.com" target="_blank" rel="noopener noreferrer"
+      <a id="accessLink" href="#" target="_blank" rel="noopener noreferrer"
          class="w-full block text-center py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition mb-6 flex items-center justify-center">
         <span class="mr-2">👉</span> 点击获取今日访问码
       </a>
@@ -116,9 +116,38 @@
       'xunlei_m', 'kuaitu_m', 'mobile_m'
     ];
 
-    const ACCESS_CODES = {
-      '2025-12-28': 'ab12',
-      // '2025-12-29': 'cd34',
+    // ✅ 30天访问码与链接（紧凑格式：日期 → {link, code}）
+    const ACCESS_MAP = {
+      '2025-12-28': { link: 'https://pan.quark.cn/s/5fb3ce78f0c3', code: '8609' },
+      '2025-12-29': { link: 'https://pan.quark.cn/s/915f812cd18e', code: '6180' },
+      '2025-12-30': { link: 'https://pan.quark.cn/s/29f5a5d86fce', code: '1900' },
+      '2025-12-31': { link: 'https://pan.quark.cn/s/a62868c30e75', code: '3760' },
+      '2026-01-01': { link: 'https://pan.quark.cn/s/68b447957f59', code: '3035' },
+      '2026-01-02': { link: 'https://pan.quark.cn/s/be3ed32ea5cf', code: '7507' },
+      '2026-01-03': { link: 'https://pan.quark.cn/s/cb4ab623de35', code: '6100' },
+      '2026-01-04': { link: 'https://pan.quark.cn/s/127d74d61aeb', code: '6999' },
+      '2026-01-05': { link: 'https://pan.quark.cn/s/c68f0132a97b', code: '8532' },
+      '2026-01-06': { link: 'https://pan.quark.cn/s/fbabd589546a', code: '1470' },
+      '2026-01-07': { link: 'https://pan.quark.cn/s/1a2c9a75ca2d', code: '7231' },
+      '2026-01-08': { link: 'https://pan.quark.cn/s/aa0b8d53620a', code: '2048' },
+      '2026-01-09': { link: 'https://pan.quark.cn/s/2da4c170bede', code: '3388' },
+      '2026-01-10': { link: 'https://pan.quark.cn/s/ffd272d299ea', code: '7478' },
+      '2026-01-11': { link: 'https://pan.quark.cn/s/b6c0fc9d4187', code: '1574' },
+      '2026-01-12': { link: 'https://pan.quark.cn/s/031a59f2e250', code: '7865' },
+      '2026-01-13': { link: 'https://pan.quark.cn/s/5455ceee2f80', code: '6855' },
+      '2026-01-14': { link: 'https://pan.quark.cn/s/412ae569c058', code: '3567' },
+      '2026-01-15': { link: 'https://pan.quark.cn/s/7ca20e801c9d', code: '3385' },
+      '2026-01-16': { link: 'https://pan.quark.cn/s/9fe9a95bc5f2', code: '1727' },
+      '2026-01-17': { link: 'https://pan.quark.cn/s/bb6cd1e53d5b', code: '6721' },
+      '2026-01-18': { link: 'https://pan.quark.cn/s/5f17a9a642fb', code: '2824' },
+      '2026-01-19': { link: 'https://pan.quark.cn/s/61cf986dfc4b', code: '6344' },
+      '2026-01-20': { link: 'https://pan.quark.cn/s/8b0f23aba29c', code: '8340' },
+      '2026-01-21': { link: 'https://pan.quark.cn/s/d38ad59e59dd', code: '5558' },
+      '2026-01-22': { link: 'https://pan.quark.cn/s/ebfe6725e44b', code: '1637' },
+      '2026-01-23': { link: 'https://pan.quark.cn/s/707e11322f75', code: '8600' },
+      '2026-01-24': { link: 'https://pan.quark.cn/s/219e178ada01', code: '3876' },
+      '2026-01-25': { link: 'https://pan.quark.cn/s/7ee5a0d569f3', code: '3234' },
+      '2026-01-26': { link: 'https://pan.quark.cn/s/56f2d33a9d79', code: '5207' }
     };
 
     // DOM
@@ -176,7 +205,7 @@
         .then(data => {
           resources = data;
           loadingDiv.classList.add('hidden');
-          renderTypeNav(); // 渲染类型导航
+          renderTypeNav();
         })
         .catch(err => {
           loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err}</p>`;
@@ -202,7 +231,6 @@
       typeNav.innerHTML = html;
       typeNav.classList.remove('hidden');
 
-      // 绑定事件（事件委托）
       typeNav.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', () => {
           const type = btn.dataset.type;
@@ -242,7 +270,6 @@
       const start = (page - 1) * ITEMS_PER_PAGE;
       const pageEntries = allEntries.slice(start, start + ITEMS_PER_PAGE);
 
-      // 渲染内容
       let html = '';
       pageEntries.forEach(entry => {
         if (entry.type === 'header') {
@@ -306,15 +333,15 @@
     document.getElementById('verifyBtn').addEventListener('click', () => {
       const input = document.getElementById('accessCodeInput').value.trim();
       const today = new Date().toISOString().split('T')[0];
-      const expected = ACCESS_CODES[today];
+      const record = ACCESS_MAP[today];
 
-      if (!expected) {
+      if (!record) {
         document.getElementById('errorText').textContent = `系统错误：未配置 ${today} 的访问码。`;
         document.getElementById('errorText').classList.remove('hidden');
         return;
       }
 
-      if (input === expected) {
+      if (input === record.code) {
         localStorage.setItem('lastVerifiedDate', today);
         document.getElementById('accessModal').classList.add('hidden');
         enableSearch();
@@ -327,6 +354,18 @@
 
     // === 页面加载 ===
     window.addEventListener('DOMContentLoaded', () => {
+      const today = new Date().toISOString().split('T')[0];
+      const linkEl = document.getElementById('accessLink');
+      const record = ACCESS_MAP[today];
+
+      if (record && record.link) {
+        linkEl.href = record.link;
+      } else {
+        linkEl.href = '#';
+        linkEl.classList.add('opacity-50', 'cursor-not-allowed');
+        linkEl.innerHTML = '<span class="mr-2">⚠️</span> 今日暂无访问码';
+      }
+
       if (checkAccess()) {
         enableSearch();
         loadData();
@@ -335,7 +374,7 @@
       }
     });
 
-    // === 搜索逻辑（不变）===
+    // === 搜索逻辑 ===
     const performSearch = ((func, wait) => {
       let timeout;
       return (...args) => {
