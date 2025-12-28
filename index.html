@@ -26,7 +26,44 @@
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
-  <div class="max-w-3xl mx-auto">
+  <!-- 模态框：访问权限验证 -->
+  <div id="accessModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4">
+      <h2 class="text-xl font-bold text-white text-center mb-4 flex items-center justify-center">
+        <span class="mr-2">🔒</span> 获取今日访问权限
+      </h2>
+      <p class="text-gray-300 text-center mb-6">请前往指定位置获取今日访问码：</p>
+
+      <!-- 获取访问码按钮 -->
+      <a href="https://your-link-to-get-code.com" target="_blank" rel="noopener noreferrer"
+         class="w-full block text-center py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition mb-6 flex items-center justify-center">
+        <span class="mr-2">👉</span> 点击获取今日访问码
+      </a>
+
+      <!-- 输入框 -->
+      <div class="mb-4">
+        <label class="block text-gray-300 text-sm mb-2">请输入获取到的 4 位访问码：</label>
+        <input
+          id="accessCodeInput"
+          type="text"
+          placeholder="例如: ab12"
+          maxlength="4"
+          class="w-full px-4 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+      </div>
+
+      <!-- 验证按钮 -->
+      <button id="verifyBtn" class="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition">
+        验证访问码
+      </button>
+
+      <!-- 错误提示 -->
+      <p id="errorText" class="text-red-500 text-sm mt-4 text-center hidden"></p>
+    </div>
+  </div>
+
+  <!-- 主页面内容 -->
+  <div class="max-w-3xl mx-auto" id="mainContent">
     <h1 class="text-3xl font-bold text-center text-gray-800 mb-6 flex items-center justify-center">
       <span class="mr-2">🔍</span> Doujiao
     </h1>
@@ -60,6 +97,12 @@
       'xunlei_m', 'kuaitu_m', 'mobile_m'
     ];
 
+    // ✅ 每日访问码配置（手动设置）
+    const ACCESS_CODES = {
+      '2025-12-28': 'ab12',  // 示例：今天是 2025-12-28，访问码是 ab12
+      // '2025-12-29': 'cd34', // 可以继续添加明天的
+    };
+
     function cleanQuery(query) {
       let cleaned = query;
       STOP_WORDS.forEach(word => {
@@ -81,9 +124,63 @@
     const resultsDiv = document.getElementById('results');
     const loadingDiv = document.getElementById('loading');
     const noResultsDiv = document.getElementById('noResults');
+    const mainContent = document.getElementById('mainContent');
 
     let resources = [];
 
+    // ✅ 检查是否需要弹出访问码验证
+    function showAccessModal() {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const lastVerified = localStorage.getItem('lastVerifiedDate');
+
+      // 如果今天已经验证过，则不弹
+      if (lastVerified === today) return;
+
+      // 如果没有配置今天的访问码，报错
+      if (!ACCESS_CODES[today]) {
+        document.getElementById('errorText').textContent = `系统错误：未配置 ${today} 的访问码。`;
+        document.getElementById('errorText').classList.remove('hidden');
+        return;
+      }
+
+      // 弹出模态框
+      document.getElementById('accessModal').classList.remove('hidden');
+    }
+
+    // ✅ 验证访问码
+    document.getElementById('verifyBtn').addEventListener('click', () => {
+      const input = document.getElementById('accessCodeInput').value.trim();
+      const today = new Date().toISOString().split('T')[0];
+      const expectedCode = ACCESS_CODES[today];
+
+      if (input === expectedCode) {
+        // 验证成功
+        localStorage.setItem('lastVerifiedDate', today);
+        document.getElementById('accessModal').classList.add('hidden');
+        document.getElementById('errorText').classList.add('hidden');
+      } else {
+        document.getElementById('errorText').textContent = '访问码错误，请重新输入。';
+        document.getElementById('errorText').classList.remove('hidden');
+      }
+    });
+
+    // ✅ 页面加载完成时检查
+    window.addEventListener('DOMContentLoaded', () => {
+      // 先隐藏主内容
+      mainContent.classList.add('hidden');
+
+      // 显示访问码弹窗
+      showAccessModal();
+
+      // 监听弹窗关闭后恢复主内容
+      const modal = document.getElementById('accessModal');
+      modal.addEventListener('transitionend', () => {
+        if (!modal.classList.contains('hidden')) return;
+        mainContent.classList.remove('hidden');
+      });
+    });
+
+    // ✅ 加载 data.json
     fetch('./data.json?t=' + Date.now())
       .then(res => res.ok ? res.json() : Promise.reject('无法加载 data.json'))
       .then(data => {
@@ -95,6 +192,7 @@
         console.error('加载错误:', err);
       });
 
+    // ✅ 搜索逻辑（不变）
     function debounce(func, wait) {
       let timeout;
       return (...args) => {
@@ -138,22 +236,18 @@
           let html = `<div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
             <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>`;
 
-          // 主网盘
           if (mainLink) {
             html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 no-underline">🔗 网盘</a>`;
           }
 
-          // 分隔线（保留）
           if (backupLink || backupCodeLink) {
             html += '<div class="border-t border-gray-200 my-3"></div>';
           }
 
-          // 备用网盘（改为 🔗 图标）
           if (backupLink) {
             html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 no-underline">🔗 备用网盘</a>`;
           }
 
-          // 提取码（也改用 🔗）
           if (backupCodeLink) {
             html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 no-underline">🔑 备用网盘提取码</a>`;
           }
@@ -164,6 +258,7 @@
       }
     }, 300);
 
+    // 绑定事件
     searchInput.addEventListener('input', (e) => performSearch(e.target.value));
     document.querySelector('.search-btn').addEventListener('click', () => performSearch(searchInput.value));
     searchInput.addEventListener('keypress', (e) => {
