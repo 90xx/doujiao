@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>资源搜索</title>
+  <title>DouJiao</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -14,12 +14,12 @@
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
   <div class="max-w-3xl mx-auto">
-    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">🔍 资源搜索</h1>
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">🔍 Doujiao</h1>
     
     <input
       id="searchInput"
       type="text"
-      placeholder="输入资源名称关键词..."
+      placeholder="输入资源名称..."
       class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
 
@@ -133,15 +133,15 @@
           `;
 
           if (mainLink) {
-            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline">🔗 网盘下载</a>`;
+            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline">🔗 主网盘</a>`;
           }
 
           if (backupLink) {
-            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline">📁 备用网盘（蓝奏）</a>`;
+            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline">🔗 备用网盘</a>`;
           }
 
           if (backupCodeLink) {
-            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 underline">🔑 备用提取码链接</a>`;
+            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 underline">🔑 备用网盘提取码</a>`;
           }
 
           html += '</div>';
