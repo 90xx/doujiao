@@ -190,13 +190,12 @@
       return cleaned.trim();
     }
 
-    // ✅ 正确获取东八区日期（关键修复）
+    // ✅ 正确获取东八区日期
     function getBeijingDate() {
       const now = new Date();
       const utc = now.getTime() + now.getTimezoneOffset() * 60000;
       const beijingTime = new Date(utc + 8 * 3600000);
-      // 使用 toLocaleDateString('sv') 获取 ISO-like 格式的本地日期字符串
-      return beijingTime.toLocaleDateString('sv');
+      return beijingTime.toLocaleDateString('sv'); // 如 "2025-12-29"
     }
 
     function enableSearch() {
@@ -208,7 +207,6 @@
       verified = true;
     }
 
-    // ✅ 更新模态框内容（接收 today 参数）
     function updateAccessModal(today) {
       const record = ACCESS_MAP[today];
       if (!record) {
@@ -220,17 +218,19 @@
       document.getElementById('accessLink').href = record.link;
     }
 
-    // ✅ 检查并强制验证今日访问（核心逻辑）
+    // ✅ 核心：检查并强制验证今日访问（首次 + 切回时调用）
     function checkAndEnforceTodayAccess() {
       const today = getBeijingDate();
       const lastVerified = localStorage.getItem('lastVerifiedDate');
 
       if (lastVerified !== today) {
-        // 未验证或不是今天 → 弹窗
         updateAccessModal(today);
         accessModal.style.display = 'flex';
+        // 确保搜索功能禁用
+        searchInput.disabled = true;
+        searchBtn.disabled = true;
+        verified = false;
       } else {
-        // 已验证 → 启用功能
         enableSearch();
         loadData();
       }
@@ -253,7 +253,7 @@
         });
     }
 
-    // === 动态生成类型导航按钮 ===
+    // === 类型导航等（略，保持不变）===
     function renderTypeNav() {
       const types = [...new Set(resources.map(item => item.type).filter(t => t))];
       typeNav.innerHTML = '';
@@ -279,7 +279,6 @@
       });
     }
 
-    // === 显示清单视图 ===
     function showListView(type) {
       currentListType = type;
       document.getElementById('listTitle').textContent = `${type}清单`;
@@ -288,7 +287,6 @@
       renderListPage(1);
     }
 
-    // === 渲染分组+分页清单 ===
     function renderListPage(page) {
       const items = resources.filter(item => item.type === currentListType);
       const groups = {};
@@ -334,7 +332,6 @@
       renderPagination(page, totalPages);
     }
 
-    // === 分页控件 ===
     function renderPagination(current, total) {
       const div = document.getElementById('listPagination');
       if (total <= 1) {
@@ -393,45 +390,9 @@
       }
     });
 
-    // === 页面加载与定时检测 ===
-    window.addEventListener('DOMContentLoaded', () => {
-      checkAndEnforceTodayAccess();
-
-      // ✅ 每分钟检查一次是否进入新一天（关键新增）
-      let lastCheckedDate = getBeijingDate();
-      setInterval(() => {
-        const today = getBeijingDate();
-        if (today !== lastCheckedDate) {
-          lastCheckedDate = today;
-          checkAndEnforceTodayAccess();
-        }
-      }, 60000); // 每 60 秒
-
-      // 监听页面可见性变化（防切换回来时日期变了）
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
-          checkAndEnforceTodayAccess();
-        }
-      });
-
-      window.addEventListener('focus', () => {
-        checkAndEnforceTodayAccess();
-      });
-    });
-
-    // === 搜索逻辑 ===
-    const performSearch = ((func, wait) => {
-      let timeout;
-      return (...args) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
-      };
-    })((rawQuery) => {
-      if (!verified || !resources || !rawQuery.trim()) {
-        resultsDiv.innerHTML = '';
-        noResultsDiv.classList.add('hidden');
-        return;
-      }
+    // === 搜索逻辑（仅在主动触发时执行）===
+    function performActualSearch(rawQuery) {
+      if (!resources || !rawQuery.trim()) return;
 
       const query = cleanQuery(rawQuery);
       if (!query) {
@@ -467,12 +428,51 @@
           resultsDiv.innerHTML += html;
         });
       }
-    }, 300);
+    }
 
-    searchInput.addEventListener('input', (e) => performSearch(e.target.value));
-    searchBtn.addEventListener('click', () => performSearch(searchInput.value));
+    // ✅ 主动搜索入口（带验证）
+    function handleUserSearch() {
+      const query = searchInput.value.trim();
+      if (!query) {
+        resultsDiv.innerHTML = '';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
+
+      // 🔑 再次验证（兜底挂机跨天）
+      const today = getBeijingDate();
+      const lastVerified = localStorage.getItem('lastVerifiedDate');
+      if (lastVerified !== today) {
+        checkAndEnforceTodayAccess(); // 会自动弹窗
+        return;
+      }
+
+      performActualSearch(query);
+    }
+
+    // 绑定搜索事件
+    searchBtn.addEventListener('click', handleUserSearch);
     searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') performSearch(searchInput.value);
+      if (e.key === 'Enter') {
+        handleUserSearch();
+      }
+    });
+
+    // === 页面加载 ===
+    window.addEventListener('DOMContentLoaded', () => {
+      // ✅ 首次访问立即验证（核心体验）
+      checkAndEnforceTodayAccess();
+
+      // ✅ 辅助：切回标签页或窗口聚焦时再检查一次
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          checkAndEnforceTodayAccess();
+        }
+      });
+
+      window.addEventListener('focus', () => {
+        checkAndEnforceTodayAccess();
+      });
     });
   </script>
 </body>
