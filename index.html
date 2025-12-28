@@ -190,12 +190,13 @@
       return cleaned.trim();
     }
 
-    // ✅ 获取东八区日期（关键修复）
+    // ✅ 正确获取东八区日期（关键修复）
     function getBeijingDate() {
       const now = new Date();
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const beijingTime = new Date(utc + (8 * 3600000));
-      return beijingTime.toISOString().split('T')[0];
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const beijingTime = new Date(utc + 8 * 3600000);
+      // 使用 toLocaleDateString('sv') 获取 ISO-like 格式的本地日期字符串
+      return beijingTime.toLocaleDateString('sv');
     }
 
     function enableSearch() {
@@ -227,7 +228,7 @@
       if (lastVerified !== today) {
         // 未验证或不是今天 → 弹窗
         updateAccessModal(today);
-        accessModal.style.display = 'flex'; // 强制显示
+        accessModal.style.display = 'flex';
       } else {
         // 已验证 → 启用功能
         enableSearch();
@@ -237,7 +238,7 @@
 
     // === 加载数据 ===
     function loadData() {
-      if (resources.length > 0) return; // 防止重复加载
+      if (resources.length > 0) return;
       loadingDiv.classList.remove('hidden');
       fetch('./data.json?t=' + Date.now())
         .then(res => res.ok ? res.json() : Promise.reject('无法加载 data.json'))
@@ -382,7 +383,7 @@
       }
 
       if (input === record.code) {
-        localStorage.setItem('lastVerifiedDate', today); // ✅ 存东八区日期
+        localStorage.setItem('lastVerifiedDate', today);
         accessModal.style.display = 'none';
         enableSearch();
         loadData();
@@ -392,9 +393,19 @@
       }
     });
 
-    // === 页面加载 ===
+    // === 页面加载与定时检测 ===
     window.addEventListener('DOMContentLoaded', () => {
       checkAndEnforceTodayAccess();
+
+      // ✅ 每分钟检查一次是否进入新一天（关键新增）
+      let lastCheckedDate = getBeijingDate();
+      setInterval(() => {
+        const today = getBeijingDate();
+        if (today !== lastCheckedDate) {
+          lastCheckedDate = today;
+          checkAndEnforceTodayAccess();
+        }
+      }, 60000); // 每 60 秒
 
       // 监听页面可见性变化（防切换回来时日期变了）
       document.addEventListener('visibilitychange', () => {
