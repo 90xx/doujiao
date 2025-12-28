@@ -72,13 +72,14 @@
     <h1 class="text-3xl font-bold text-center text-gray-800 mb-6 flex items-center justify-center">
       <span class="mr-2">🔍</span> Doujiao
     </h1>
-    
+
+    <!-- 👋 新人必看入口 -->
     <p class="text-center mb-4">
-    <a href="https://www.kdocs.cn/l/cfv01SPXoG7L" target="_blank" rel="noopener noreferrer"
-       class="inline-block px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-full shadow hover:shadow-md transition transform hover:-translate-y-0.5">
-      👋 新人必看
-    </a>
-  </p>
+      <a href="https://www.kdocs.cn/l/cfv01SPXoG7L" target="_blank" rel="noopener noreferrer"
+         class="inline-block px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-full shadow hover:shadow-md transition transform hover:-translate-y-0.5">
+        👋 新人必看指南
+      </a>
+    </p>
 
     <!-- 类型导航（验证后显示） -->
     <div id="typeNav" class="text-center mt-4 hidden">
@@ -202,6 +203,24 @@
       searchBtn.disabled = false;
       searchBtn.classList.remove('disabled-btn');
       verified = true;
+    }
+
+    // ✅ 新增：强制检查是否进入新一天
+    function checkAndEnforceTodayAccess() {
+      const today = new Date().toISOString().split('T')[0];
+      if (!ACCESS_MAP[today]) {
+        alert('系统维护中，请稍后再试。');
+        return;
+      }
+      const lastVerified = localStorage.getItem('lastVerifiedDate');
+      if (lastVerified !== today) {
+        verified = false;
+        searchInput.disabled = true;
+        searchInput.classList.add('disabled-input');
+        searchBtn.disabled = true;
+        searchBtn.classList.add('disabled-btn');
+        document.getElementById('accessModal').classList.remove('hidden');
+      }
     }
 
     // === 加载数据 ===
@@ -362,16 +381,15 @@
     // === 页面加载 ===
     window.addEventListener('DOMContentLoaded', () => {
       const today = new Date().toISOString().split('T')[0];
-      const linkEl = document.getElementById('accessLink');
       const record = ACCESS_MAP[today];
 
-      if (record && record.link) {
-        linkEl.href = record.link;
-      } else {
-        linkEl.href = '#';
-        linkEl.classList.add('opacity-50', 'cursor-not-allowed');
-        linkEl.innerHTML = '<span class="mr-2">⚠️</span> 今日暂无访问码';
+      if (!record) {
+        alert('系统维护中，请稍后再试。');
+        return;
       }
+
+      const linkEl = document.getElementById('accessLink');
+      linkEl.href = record.link;
 
       if (checkAccess()) {
         enableSearch();
@@ -379,6 +397,17 @@
       } else {
         document.getElementById('accessModal').classList.remove('hidden');
       }
+
+      // ✅ 监听页面可见性变化 & 窗口聚焦，防止跨日失效
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          checkAndEnforceTodayAccess();
+        }
+      });
+
+      window.addEventListener('focus', () => {
+        checkAndEnforceTodayAccess();
+      });
     });
 
     // === 搜索逻辑 ===
