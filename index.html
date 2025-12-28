@@ -400,12 +400,8 @@
       // 初始化模态框内容（显示今天）
       updateAccessModal();
 
-      if (checkAccess()) {
-        enableSearch();
-        loadData();
-      } else {
-        document.getElementById('accessModal').classList.remove('hidden');
-      }
+      // 检查是否需要弹窗
+      checkAndEnforceTodayAccess();
 
       // 监听页面可见性变化 & 窗口聚焦
       document.addEventListener('visibilitychange', () => {
