@@ -3,25 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>DouJiao</title>
+  <title>Doujiao</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
+    .search-btn {
+      padding: 0.5rem 1rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-left: 0.5rem;
+    }
+    .search-btn:hover {
+      background-color: #2563eb;
+    }
+    .link-main { color: #10b981; } /* 绿色 */
+    .link-backup { color: #8b5cf6; } /* 紫色 */
+    .link-code { color: #f59e0b; }   /* 橙色 */
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
   <div class="max-w-3xl mx-auto">
-    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">🔍 Doujiao</h1>
-    
-    <input
-      id="searchInput"
-      type="text"
-      placeholder="输入资源名称..."
-      class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6 flex items-center justify-center">
+      <span class="mr-2">🔍</span> Doujiao
+    </h1>
+
+    <div class="flex flex-col md:flex-row gap-2 items-center justify-center">
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="输入资源名称..."
+        class="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button class="search-btn">搜索</button>
+    </div>
 
     <div id="loading" class="text-center text-gray-500 mt-6">正在加载资源库...</div>
     <div id="results" class="mt-6 space-y-4"></div>
@@ -108,10 +129,9 @@
         return;
       }
 
-      // 纯字符串匹配：检查 title 是否包含 query
       const hits = resources.filter(item => {
         const title = item.title || '';
-        const lowerTitle = title.toLowerCase().replace(/[\s\u2000-\u206F\u2700-\u27BF]/g, ''); // 去除空格和特殊符号
+        const lowerTitle = title.toLowerCase().replace(/[\s\u2000-\u206F\u2700-\u27BF]/g, '');
         const lowerQuery = query.toLowerCase().replace(/[\s\u2000-\u206F\u2700-\u27BF]/g, '');
         return lowerTitle.includes(lowerQuery);
       });
@@ -133,15 +153,20 @@
           `;
 
           if (mainLink) {
-            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline">🔗 主网盘</a>`;
+            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline link-main">🔗 主网盘</a>`;
+          }
+
+          // 添加空白行，分隔主网盘和备用网盘
+          if (backupLink || backupCodeLink) {
+            html += `<div class="my-2"></div>`; // 留空隙
           }
 
           if (backupLink) {
-            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline">🔗 备用网盘</a>`;
+            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline link-backup">📁 备用网盘</a>`;
           }
 
           if (backupCodeLink) {
-            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 underline">🔑 备用网盘提取码</a>`;
+            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 underline link-code">🔑 备用网盘提取码</a>`;
           }
 
           html += '</div>';
@@ -152,6 +177,18 @@
 
     searchInput.addEventListener('input', (e) => {
       performSearch(e.target.value);
+    });
+
+    // === 搜索按钮点击事件 ===
+    document.querySelector('.search-btn').addEventListener('click', () => {
+      performSearch(searchInput.value);
+    });
+
+    // === 回车键触发搜索 ===
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        performSearch(searchInput.value);
+      }
     });
   </script>
 </body>
