@@ -23,9 +23,6 @@
     .search-btn:hover {
       background-color: #2563eb;
     }
-    .link-main { color: #10b981; } /* 绿色 */
-    .link-backup,
-    .link-code { color: #8b5cf6; } /* 统一为紫色（按你最新要求）*/
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
@@ -141,24 +138,24 @@
           let html = `<div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
             <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>`;
 
-          // 主网盘（绿色）
+          // 主网盘
           if (mainLink) {
-            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline link-main">🔗 主网盘</a>`;
+            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-blue-600 no-underline">🔗 主网盘</a>`;
           }
 
-          // 如果有备用链接，加一条分隔线
+          // 分隔线（保留）
           if (backupLink || backupCodeLink) {
             html += '<div class="border-t border-gray-200 my-3"></div>';
           }
 
-          // 备用网盘（紫色）
+          // 备用网盘（改为 🔗 图标）
           if (backupLink) {
-            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline link-backup">📁 备用网盘</a>`;
+            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-blue-600 no-underline">🔗 备用网盘</a>`;
           }
 
-          // 提取码（也用紫色，按你要求）
+          // 提取码（也改用 🔗）
           if (backupCodeLink) {
-            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline link-code">🔑 备用网盘提取码</a>`;
+            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-blue-600 no-underline">🔑 备用网盘提取码</a>`;
           }
 
           html += '</div>';
