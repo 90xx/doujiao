@@ -24,8 +24,8 @@
       background-color: #2563eb;
     }
     .link-main { color: #10b981; } /* 绿色 */
-    .link-backup { color: #8b5cf6; } /* 紫色 */
-    .link-code { color: #f59e0b; }   /* 橙色 */
+    .link-backup,
+    .link-code { color: #8b5cf6; } /* 统一为紫色（按你最新要求）*/
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
@@ -53,19 +53,16 @@
     // === 配置 ===
     const STOP_WORDS = ['小说', '电视', '完结', '全集', '完整版', '高清', '中文'];
 
-    // 主网盘候选字段
     const MAIN_CANDIDATES = [
       'wukong', 'quark', 'baidu', 'uc', 'xunlei', 'kuaitu',
       'mobile', 'uc_lanzou', 'baidu_zip', 'mobile_zip', 'xunlei_zip'
     ];
 
-    // 备用提取码候选字段
     const BACKUP_CODE_CANDIDATES = [
       'wukong_m', 'quark_m', 'baidu_m', 'ucm',
       'xunlei_m', 'kuaitu_m', 'mobile_m'
     ];
 
-    // === 工具函数 ===
     function cleanQuery(query) {
       let cleaned = query;
       STOP_WORDS.forEach(word => {
@@ -83,7 +80,6 @@
       return candidates[Math.floor(Math.random() * candidates.length)];
     }
 
-    // === DOM 元素 ===
     const searchInput = document.getElementById('searchInput');
     const resultsDiv = document.getElementById('results');
     const loadingDiv = document.getElementById('loading');
@@ -91,22 +87,17 @@
 
     let resources = [];
 
-    // === 加载 data.json ===
     fetch('./data.json?t=' + Date.now())
-      .then(res => {
-        if (!res.ok) throw new Error('无法加载 data.json');
-        return res.json();
-      })
+      .then(res => res.ok ? res.json() : Promise.reject('无法加载 data.json'))
       .then(data => {
         resources = data;
         loadingDiv.classList.add('hidden');
       })
       .catch(err => {
-        loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err.message}</p>`;
+        loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err}</p>`;
         console.error('加载错误:', err);
       });
 
-    // === 搜索逻辑（纯 JS 匹配）===
     function debounce(func, wait) {
       let timeout;
       return (...args) => {
@@ -147,26 +138,27 @@
           const backupLink = item.lanzou && item.lanzou.startsWith('http') ? item.lanzou : null;
           const backupCodeLink = getRandomNonEmptyLink(item, BACKUP_CODE_CANDIDATES);
 
-          let html = `
-            <div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
-              <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>
-          `;
+          let html = `<div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
+            <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>`;
 
+          // 主网盘（绿色）
           if (mainLink) {
             html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline link-main">🔗 主网盘</a>`;
           }
 
-          // 添加空白行，分隔主网盘和备用网盘
+          // 如果有备用链接，加一条分隔线
           if (backupLink || backupCodeLink) {
-            html += `<div class="my-2"></div>`; // 留空隙
+            html += '<div class="border-t border-gray-200 my-3"></div>';
           }
 
+          // 备用网盘（紫色）
           if (backupLink) {
             html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline link-backup">📁 备用网盘</a>`;
           }
 
+          // 提取码（也用紫色，按你要求）
           if (backupCodeLink) {
-            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 underline link-code">🔑 备用网盘提取码</a>`;
+            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline link-code">🔑 备用网盘提取码</a>`;
           }
 
           html += '</div>';
@@ -175,20 +167,10 @@
       }
     }, 300);
 
-    searchInput.addEventListener('input', (e) => {
-      performSearch(e.target.value);
-    });
-
-    // === 搜索按钮点击事件 ===
-    document.querySelector('.search-btn').addEventListener('click', () => {
-      performSearch(searchInput.value);
-    });
-
-    // === 回车键触发搜索 ===
+    searchInput.addEventListener('input', (e) => performSearch(e.target.value));
+    document.querySelector('.search-btn').addEventListener('click', () => performSearch(searchInput.value));
     searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        performSearch(searchInput.value);
-      }
+      if (e.key === 'Enter') performSearch(searchInput.value);
     });
   </script>
 </body>
