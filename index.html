@@ -6,8 +6,6 @@
   <title>资源搜索</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FlexSearch for fast fuzzy search -->
-  <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -21,7 +19,7 @@
     <input
       id="searchInput"
       type="text"
-      placeholder="输入资源名称关键词（如：男神俱乐部）..."
+      placeholder="输入资源名称关键词..."
       class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
 
@@ -34,13 +32,13 @@
     // === 配置 ===
     const STOP_WORDS = ['小说', '电视', '完结', '全集', '完整版', '高清', '中文'];
 
-    // 主网盘候选字段（按你 data.json 中的 key）
+    // 主网盘候选字段
     const MAIN_CANDIDATES = [
       'wukong', 'quark', 'baidu', 'uc', 'xunlei', 'kuaitu',
       'mobile', 'uc_lanzou', 'baidu_zip', 'mobile_zip', 'xunlei_zip'
     ];
 
-    // 备用提取码候选字段（实际是链接）
+    // 备用提取码候选字段
     const BACKUP_CODE_CANDIDATES = [
       'wukong_m', 'quark_m', 'baidu_m', 'ucm',
       'xunlei_m', 'kuaitu_m', 'mobile_m'
@@ -71,7 +69,6 @@
     const noResultsDiv = document.getElementById('noResults');
 
     let resources = [];
-    let searchIndex = null;
 
     // === 加载 data.json ===
     fetch('./data.json?t=' + Date.now())
@@ -81,16 +78,14 @@
       })
       .then(data => {
         resources = data;
-        searchIndex = new FlexSearch.Document({ id: "id", index: ["title"] });
-        resources.forEach(item => searchIndex.add(item));
         loadingDiv.classList.add('hidden');
       })
       .catch(err => {
-        loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err.message}<br>请确保 data.json 存在于同一目录</p>`;
+        loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err.message}</p>`;
         console.error('加载错误:', err);
       });
 
-    // === 搜索逻辑（带防抖）===
+    // === 搜索逻辑（纯 JS 匹配）===
     function debounce(func, wait) {
       let timeout;
       return (...args) => {
@@ -100,7 +95,7 @@
     }
 
     const performSearch = debounce((rawQuery) => {
-      if (!searchIndex || !rawQuery.trim()) {
+      if (!resources || !rawQuery.trim()) {
         resultsDiv.innerHTML = '';
         noResultsDiv.classList.add('hidden');
         return;
@@ -108,15 +103,18 @@
 
       const query = cleanQuery(rawQuery);
       if (!query) {
-        resultsDiv.innerHTML = '<p class="text-gray-500 text-center">请输入有效关键词（已忽略“小说”“完结”等词）</p>';
+        resultsDiv.innerHTML = '<p class="text-gray-500 text-center">请输入有效关键词</p>';
         noResultsDiv.classList.add('hidden');
         return;
       }
 
-      const searchResults = searchIndex.search(query, { limit: 50 });
-      const hits = searchResults.flatMap(r => r.result)
-        .map(id => resources.find(item => item.id === id))
-        .filter(Boolean);
+      // 纯字符串匹配：检查 title 是否包含 query
+      const hits = resources.filter(item => {
+        const title = item.title || '';
+        const lowerTitle = title.toLowerCase().replace(/[\s\u2000-\u206F\u2700-\u27BF]/g, ''); // 去除空格和特殊符号
+        const lowerQuery = query.toLowerCase().replace(/[\s\u2000-\u206F\u2700-\u27BF]/g, '');
+        return lowerTitle.includes(lowerQuery);
+      });
 
       resultsDiv.innerHTML = '';
       noResultsDiv.classList.toggle('hidden', hits.length > 0);
