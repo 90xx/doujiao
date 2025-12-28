@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>资源搜索</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FlexSearch for fast fuzzy search -->
+  <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen py-12 px-4">
+  <div class="max-w-3xl mx-auto">
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">🔍 资源搜索</h1>
+    
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="输入资源名称关键词（如：男神俱乐部）..."
+      class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+
+    <div id="loading" class="text-center text-gray-500 mt-6">正在加载资源库...</div>
+    <div id="results" class="mt-6 space-y-4"></div>
+    <div id="noResults" class="text-center text-gray-500 mt-8 hidden">未找到相关资源 😢</div>
+  </div>
+
+  <script>
+    // === 配置 ===
+    const STOP_WORDS = ['小说', '电视', '完结', '全集', '完整版', '高清', '中文'];
+
+    // 主网盘候选字段（按你 data.json 中的 key）
+    const MAIN_CANDIDATES = [
+      'wukong', 'quark', 'baidu', 'uc', 'xunlei', 'kuaitu',
+      'mobile', 'uc_lanzou', 'baidu_zip', 'mobile_zip', 'xunlei_zip'
+    ];
+
+    // 备用提取码候选字段（实际是链接）
+    const BACKUP_CODE_CANDIDATES = [
+      'wukong_m', 'quark_m', 'baidu_m', 'ucm',
+      'xunlei_m', 'kuaitu_m', 'mobile_m'
+    ];
+
+    // === 工具函数 ===
+    function cleanQuery(query) {
+      let cleaned = query;
+      STOP_WORDS.forEach(word => {
+        const regex = new RegExp(word, 'g');
+        cleaned = cleaned.replace(regex, '');
+      });
+      return cleaned.trim();
+    }
+
+    function getRandomNonEmptyLink(item, fields) {
+      const candidates = fields
+        .map(field => item[field])
+        .filter(url => url && typeof url === 'string' && url.trim() !== '' && url.startsWith('http'));
+      if (candidates.length === 0) return null;
+      return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+
+    // === DOM 元素 ===
+    const searchInput = document.getElementById('searchInput');
+    const resultsDiv = document.getElementById('results');
+    const loadingDiv = document.getElementById('loading');
+    const noResultsDiv = document.getElementById('noResults');
+
+    let resources = [];
+    let searchIndex = null;
+
+    // === 加载 data.json ===
+    fetch('./data.json?t=' + Date.now())
+      .then(res => {
+        if (!res.ok) throw new Error('无法加载 data.json');
+        return res.json();
+      })
+      .then(data => {
+        resources = data;
+        searchIndex = new FlexSearch.Document({ id: "id", index: ["title"] });
+        resources.forEach(item => searchIndex.add(item));
+        loadingDiv.classList.add('hidden');
+      })
+      .catch(err => {
+        loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err.message}<br>请确保 data.json 存在于同一目录</p>`;
+        console.error('加载错误:', err);
+      });
+
+    // === 搜索逻辑（带防抖）===
+    function debounce(func, wait) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+      };
+    }
+
+    const performSearch = debounce((rawQuery) => {
+      if (!searchIndex || !rawQuery.trim()) {
+        resultsDiv.innerHTML = '';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
+
+      const query = cleanQuery(rawQuery);
+      if (!query) {
+        resultsDiv.innerHTML = '<p class="text-gray-500 text-center">请输入有效关键词（已忽略“小说”“完结”等词）</p>';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
+
+      const searchResults = searchIndex.search(query, { limit: 50 });
+      const hits = searchResults.flatMap(r => r.result)
+        .map(id => resources.find(item => item.id === id))
+        .filter(Boolean);
+
+      resultsDiv.innerHTML = '';
+      noResultsDiv.classList.toggle('hidden', hits.length > 0);
+
+      if (hits.length === 0) {
+        noResultsDiv.classList.remove('hidden');
+      } else {
+        hits.forEach(item => {
+          const mainLink = getRandomNonEmptyLink(item, MAIN_CANDIDATES);
+          const backupLink = item.lanzou && item.lanzou.startsWith('http') ? item.lanzou : null;
+          const backupCodeLink = getRandomNonEmptyLink(item, BACKUP_CODE_CANDIDATES);
+
+          let html = `
+            <div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
+              <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>
+          `;
+
+          if (mainLink) {
+            html += `<a href="${mainLink}" target="_blank" rel="noopener noreferrer" class="block mt-2 text-green-600 underline">🔗 网盘下载</a>`;
+          }
+
+          if (backupLink) {
+            html += `<a href="${backupLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-purple-600 underline">📁 备用网盘（蓝奏）</a>`;
+          }
+
+          if (backupCodeLink) {
+            html += `<a href="${backupCodeLink}" target="_blank" rel="noopener noreferrer" class="block mt-1 text-orange-600 underline">🔑 备用提取码链接</a>`;
+          }
+
+          html += '</div>';
+          resultsDiv.innerHTML += html;
+        });
+      }
+    }, 300);
+
+    searchInput.addEventListener('input', (e) => {
+      performSearch(e.target.value);
+    });
+  </script>
+</body>
+</html>
