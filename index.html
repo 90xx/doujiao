@@ -114,14 +114,7 @@
   <script>
     // === 配置 ===
     const STOP_WORDS = ['小说', '电视', '完结', '全集', '完整版', '高清', '中文'];
-    const MAIN_CANDIDATES = [
-      'wukong', 'quark', 'baidu', 'uc', 'xunlei', 'kuaitu',
-      'mobile', 'uc_lanzou', 'baidu_zip', 'mobile_zip', 'xunlei_zip'
-    ];
-    const BACKUP_CODE_CANDIDATES = [
-      'wukong_m', 'quark_m', 'baidu_m', 'ucm',
-      'xunlei_m', 'kuaitu_m', 'mobile_m'
-    ];
+    const NET_DISK_FIELDS = ['kk', 'bd', 'uc', 'xl', 'kt', 'yd', 'wk']; // kk:夸克, bd:百度, uc:UC, xl:迅雷, kt:快兔, yd:移动, wk:悟空
 
     const ACCESS_MAP = {
       '2026-01-05': { link: 'https://pan.quark.cn/s/c68f0132a97b', code: '8532' },
@@ -163,12 +156,14 @@
     let currentListType = null;
     const ITEMS_PER_PAGE = 20;
 
-    // 工具函数
-    function getRandomNonEmptyLink(item, fields) {
-      const candidates = fields
+    // 工具函数：从资源项中随机获取最多 maxCount 个有效网盘链接
+    function getRandomValidLinks(item, maxCount = 3) {
+      const urls = NET_DISK_FIELDS
         .map(field => item[field])
         .filter(url => url && typeof url === 'string' && url.trim() !== '' && url.startsWith('http'));
-      return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+      const uniqueUrls = [...new Set(urls)]; // 去重
+      const shuffled = uniqueUrls.sort(() => 0.5 - Math.random()); // 随机打乱
+      return shuffled.slice(0, maxCount);
     }
 
     function cleanQuery(query) {
@@ -187,7 +182,7 @@
       return beijingTime.toLocaleDateString('sv'); // 如 "2025-12-29"
     }
 
-    // === 加载数据（无验证）===
+    // === 加载数据 ===
     function loadData() {
       if (resources.length > 0) return;
       loadingDiv.classList.remove('hidden');
@@ -224,14 +219,12 @@
       typeNav.querySelectorAll('button').forEach(btn => {
         btn.addEventListener('click', () => {
           const type = btn.dataset.type;
-          // ✅ 点击分类时才检查访问权限
           const today = getBeijingDate();
           const lastVerified = localStorage.getItem('lastVerifiedListDate');
 
           if (lastVerified === today) {
             showListView(type);
           } else {
-            // 弹出模态框
             const record = ACCESS_MAP[today];
             if (!record) {
               alert(`系统未配置 ${today} 的访问码，请稍后再试。`);
@@ -240,7 +233,6 @@
             document.getElementById('linkDate').textContent = today;
             document.getElementById('accessLink').href = record.link;
             accessModal.style.display = 'flex';
-            // 临时记住用户想看的类型
             accessModal.dataset.pendingType = type;
           }
         });
@@ -282,16 +274,19 @@
           html += `<h3 class="text-xl font-bold text-gray-700 border-l-4 border-blue-500 pl-2">${entry.initial}</h3>`;
         } else {
           const item = entry.data;
-          const main = getRandomNonEmptyLink(item, MAIN_CANDIDATES);
-          const backup = item.lanzou?.startsWith('http') ? item.lanzou : null;
-          const codeLink = getRandomNonEmptyLink(item, BACKUP_CODE_CANDIDATES);
+          const links = getRandomValidLinks(item, 3);
 
-          html += `
-            <div class="bg-white p-4 rounded-lg shadow">
-              <h4 class="font-semibold text-blue-600">${item.title}</h4>`;
-          if (main) html += `<a href="${main}" target="_blank" class="block mt-1 text-green-600">🔗 主网盘</a>`;
-          if (backup) html += `<a href="${backup}" target="_blank" class="block mt-1 text-orange-600">🔄 备用网盘</a>`;
-          if (codeLink) html += `<a href="${codeLink}" target="_blank" class="block mt-1 text-purple-600">🔑 提取码</a>`;
+          html += `<div class="bg-white p-4 rounded-lg shadow">
+            <h4 class="font-semibold text-blue-600">${item.title}</h4>`;
+
+          if (links.length > 0) {
+            links.forEach((link, idx) => {
+              html += `<a href="${link}" target="_blank" class="block mt-1 text-green-600">🔗 网盘 ${idx + 1}</a>`;
+            });
+          } else {
+            html += `<p class="text-gray-500 mt-1">暂无有效链接</p>`;
+          }
+
           html += `</div>`;
         }
       });
@@ -334,7 +329,7 @@
       mainContainer.classList.remove('hidden');
     });
 
-    // === 验证逻辑（仅用于分类访问）===
+    // === 验证逻辑 ===
     document.getElementById('verifyBtn').addEventListener('click', () => {
       const input = document.getElementById('accessCodeInput').value.trim();
       const today = getBeijingDate();
@@ -348,12 +343,11 @@
       }
 
       if (input === record.code) {
-        localStorage.setItem('lastVerifiedListDate', today); // 注意：key 不同！
+        localStorage.setItem('lastVerifiedListDate', today);
         accessModal.style.display = 'none';
         document.getElementById('accessCodeInput').value = '';
         errorText.classList.add('hidden');
 
-        // 跳转到之前想看的分类
         const pendingType = accessModal.dataset.pendingType;
         if (pendingType) {
           showListView(pendingType);
@@ -367,7 +361,11 @@
 
     // === 搜索逻辑（无需验证）===
     function performActualSearch(rawQuery) {
-      if (!resources || !rawQuery.trim()) return;
+      if (!resources || !rawQuery.trim()) {
+        resultsDiv.innerHTML = '';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
 
       const query = cleanQuery(rawQuery);
       if (!query) {
@@ -389,16 +387,18 @@
         noResultsDiv.classList.remove('hidden');
       } else {
         hits.forEach(item => {
-          const main = getRandomNonEmptyLink(item, MAIN_CANDIDATES);
-          const backup = item.lanzou?.startsWith('http') ? item.lanzou : null;
-          const codeLink = getRandomNonEmptyLink(item, BACKUP_CODE_CANDIDATES);
-
+          const links = getRandomValidLinks(item, 3);
           let html = `<div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
             <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>`;
-          if (main) html += `<a href="${main}" target="_blank" class="block mt-2 text-green-600">🔗 网盘</a>`;
-          if (backup || codeLink) html += '<div class="border-t border-gray-200 my-3"></div>';
-          if (backup) html += `<a href="${backup}" target="_blank" class="block mt-1 text-orange-600">🔗 备用网盘</a>`;
-          if (codeLink) html += `<a href="${codeLink}" target="_blank" class="block mt-1 text-orange-600">🔑 备用网盘提取码</a>`;
+
+          if (links.length > 0) {
+            links.forEach((link, idx) => {
+              html += `<a href="${link}" target="_blank" class="block mt-2 text-green-600">🔗 网盘 ${idx + 1}</a>`;
+            });
+          } else {
+            html += `<p class="text-gray-500 mt-2">暂无有效链接</p>`;
+          }
+
           html += '</div>';
           resultsDiv.innerHTML += html;
         });
@@ -424,7 +424,6 @@
 
     // === 页面加载 ===
     window.addEventListener('DOMContentLoaded', () => {
-      // ✅ 直接启用搜索 + 加载数据
       loadData();
     });
   </script>
