@@ -36,12 +36,6 @@
 </head>
 <body class="bg-gray-50 min-h-screen py-12 px-4">
 
-  <!-- 🔔 极简更新通知栏（新增） -->
-  <div id="updateBanner" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow z-50 hidden">
-    <span id="updateText"></span>
-    <button onclick="this.parentElement.classList.add('hidden')" class="ml-3">×</button>
-  </div>
-
   <!-- 访问码模态框 -->
   <div id="accessModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
     <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4">
@@ -101,6 +95,14 @@
         class="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg shadow-sm"
       />
       <button class="search-btn">搜索</button>
+    </div>
+
+    <!-- 🔔 更新通知（现在放在搜索栏下方，非固定定位） -->
+    <div id="updateBanner" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 hidden">
+      <div class="flex justify-between items-start">
+        <span id="updateText" class="font-medium"></span>
+        <button onclick="this.parentElement.parentElement.classList.add('hidden')" class="text-blue-600 hover:text-blue-800 ml-2">×</button>
+      </div>
     </div>
 
     <div id="loading" class="text-center text-gray-500 mt-6 hidden">正在加载资源库...</div>
@@ -189,7 +191,7 @@
       return beijingTime.toLocaleDateString('sv'); // 如 "2025-12-29"
     }
 
-    // === 🔔 新增：极简更新通知函数 ===
+    // === 🔔 极简更新通知函数（无需修改）===
     function showUpdateNotice() {
       fetch('./update.json?t=' + Date.now())
         .then(r => r.json())
