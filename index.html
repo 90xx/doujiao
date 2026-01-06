@@ -97,10 +97,11 @@
       <button class="search-btn">搜索</button>
     </div>
 
-    <!-- 🔔 更新通知（现在放在搜索栏下方，非固定定位） -->
+    <!-- 🔔 更新通知（现在支持多行） -->
     <div id="updateBanner" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 hidden">
       <div class="flex justify-between items-start">
-        <span id="updateText" class="font-medium"></span>
+        <!-- ✅ 关键修改：从 span 改为 div，并加 space-y-1 -->
+        <div id="updateText" class="font-medium space-y-1 text-sm"></div>
         <button onclick="this.parentElement.parentElement.classList.add('hidden')" class="text-blue-600 hover:text-blue-800 ml-2">×</button>
       </div>
     </div>
@@ -123,7 +124,7 @@
   <script>
     // === 配置 ===
     const STOP_WORDS = ['小说', '电视', '完结', '全集', '完整版', '高清', '中文'];
-    const NET_DISK_FIELDS = ['kk', 'bd', 'uc', 'xl', 'kt', 'yd', 'wk']; // kk:夸克, bd:百度, uc:UC, xl:迅雷, kt:快兔, yd:移动, wk:悟空
+    const NET_DISK_FIELDS = ['kk', 'bd', 'uc', 'xl', 'kt', 'yd', 'wk'];
 
     const ACCESS_MAP = {
       '2026-01-05': { link: 'https://pan.quark.cn/s/c68f0132a97b', code: '8532' },
@@ -165,13 +166,12 @@
     let currentListType = null;
     const ITEMS_PER_PAGE = 20;
 
-    // 工具函数：从资源项中随机获取最多 maxCount 个有效网盘链接
     function getRandomValidLinks(item, maxCount = 3) {
       const urls = NET_DISK_FIELDS
         .map(field => item[field])
         .filter(url => url && typeof url === 'string' && url.trim() !== '' && url.startsWith('http'));
-      const uniqueUrls = [...new Set(urls)]; // 去重
-      const shuffled = uniqueUrls.sort(() => 0.5 - Math.random()); // 随机打乱
+      const uniqueUrls = [...new Set(urls)];
+      const shuffled = uniqueUrls.sort(() => 0.5 - Math.random());
       return shuffled.slice(0, maxCount);
     }
 
@@ -188,23 +188,45 @@
       const now = new Date();
       const utc = now.getTime() + now.getTimezoneOffset() * 60000;
       const beijingTime = new Date(utc + 8 * 3600000);
-      return beijingTime.toLocaleDateString('sv'); // 如 "2025-12-29"
+      return beijingTime.toLocaleDateString('sv');
     }
 
-    // === 🔔 极简更新通知函数（无需修改）===
+    // ✅【关键更新】支持 messages 数组和旧版 message 字符串
     function showUpdateNotice() {
       fetch('./update.json?t=' + Date.now())
         .then(r => r.json())
         .then(data => {
-          if (data?.message) {
-            document.getElementById('updateText').textContent = data.message;
-            document.getElementById('updateBanner').classList.remove('hidden');
+          const updateTextEl = document.getElementById('updateText');
+          const banner = document.getElementById('updateBanner');
+          updateTextEl.innerHTML = '';
+
+          let messages = [];
+
+          // 兼容旧格式
+          if (typeof data.message === 'string') {
+            messages = [data.message];
           }
+          // 新格式
+          else if (Array.isArray(data.messages)) {
+            messages = data.messages;
+          }
+          // 如果都没有，不显示
+          else {
+            return;
+          }
+
+          // 渲染每条消息
+          messages.forEach(msg => {
+            const div = document.createElement('div');
+            div.textContent = msg;
+            updateTextEl.appendChild(div);
+          });
+
+          banner.classList.remove('hidden');
         })
-        .catch(() => {}); // 忽略错误（如文件不存在）
+        .catch(() => {});
     }
 
-    // === 加载数据 ===
     function loadData() {
       if (resources.length > 0) return;
       loadingDiv.classList.remove('hidden');
@@ -214,7 +236,7 @@
           resources = Array.isArray(data) ? data : (data.items || []);
           loadingDiv.classList.add('hidden');
           renderTypeNav();
-          showUpdateNotice(); // ✅ 在这里调用更新通知
+          showUpdateNotice(); // 调用新通知函数
         })
         .catch(err => {
           loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err}</p>`;
@@ -222,7 +244,6 @@
         });
     }
 
-    // === 类型导航 ===
     function renderTypeNav() {
       const types = [...new Set(resources.map(item => item.type).filter(t => t))];
       typeNav.innerHTML = '';
@@ -346,13 +367,11 @@
       });
     }
 
-    // === 返回搜索 ===
     document.getElementById('backBtn').addEventListener('click', () => {
       listView.classList.add('hidden');
       mainContainer.classList.remove('hidden');
     });
 
-    // === 验证逻辑 ===
     document.getElementById('verifyBtn').addEventListener('click', () => {
       const input = document.getElementById('accessCodeInput').value.trim();
       const today = getBeijingDate();
@@ -382,7 +401,6 @@
       }
     });
 
-    // === 搜索逻辑（无需验证）===
     function performActualSearch(rawQuery) {
       if (!resources || !rawQuery.trim()) {
         resultsDiv.innerHTML = '';
@@ -445,7 +463,6 @@
       }
     });
 
-    // === 页面加载 ===
     window.addEventListener('DOMContentLoaded', () => {
       loadData();
     });
