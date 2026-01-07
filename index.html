@@ -97,7 +97,7 @@
       <button class="search-btn">搜索</button>
     </div>
 
-    <!-- 🔔 更新通知 -->
+    <!-- 🔔 更新通知（现在支持多行） -->
     <div id="updateBanner" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 hidden">
       <div class="flex justify-between items-start">
         <div id="updateText" class="font-medium space-y-1 text-sm"></div>
@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div id="loading" class="text-center text-gray-500 mt-6 hidden">正在加载资源...</div>
+    <div id="loading" class="text-center text-gray-500 mt-6 hidden">正在加载资源库...</div>
     <div id="results" class="mt-6 space-y-4"></div>
     <div id="noResults" class="text-center text-gray-500 mt-8 hidden">未找到相关资源 😢</div>
   </div>
@@ -126,6 +126,8 @@
     const NET_DISK_FIELDS = ['kk', 'bd', 'uc', 'xl', 'kt', 'yd', 'wk'];
 
     const ACCESS_MAP = {
+      '2026-01-05': { link: 'https://pan.quark.cn/s/c68f0132a97b', code: '8532' },
+      '2026-01-06': { link: 'https://pan.quark.cn/s/fbabd589546a', code: '1470' },
       '2026-01-07': { link: 'https://pan.quark.cn/s/1a2c9a75ca2d', code: '7231' },
       '2026-01-08': { link: 'https://pan.quark.cn/s/aa0b8d53620a', code: '2048' },
       '2026-01-09': { link: 'https://pan.quark.cn/s/2da4c170bede', code: '3388' },
@@ -148,16 +150,6 @@
       '2026-01-26': { link: 'https://pan.quark.cn/s/56f2d33a9d79', code: '5207' }
     };
 
-    // === 资源类型与文件映射 ===
-    const TYPE_TO_FILE = {
-      '泰剧小说': 'thai-novel.json',
-      '日剧小说': 'japan-novel.json',
-      '日剧漫画': 'japan-comic.json',
-      '韩综资源': 'korea-variety.json',
-      // 可继续添加，例如：
-      // '国产动漫': 'cn-anime.json',
-    };
-
     // DOM
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.querySelector('.search-btn');
@@ -169,11 +161,10 @@
     const typeNav = document.getElementById('typeNav');
     const accessModal = document.getElementById('accessModal');
 
-    let loadedData = {}; // 缓存已加载的类型数据
+    let resources = [];
     let currentListType = null;
     const ITEMS_PER_PAGE = 20;
 
-    // 工具函数
     function getRandomValidLinks(item, maxCount = 3) {
       const urls = NET_DISK_FIELDS
         .map(field => item[field])
@@ -199,50 +190,127 @@
       return beijingTime.toLocaleDateString('sv');
     }
 
-    // 加载指定类型的 JSON 数据
-    function loadTypeData(type) {
-      if (loadedData[type]) {
-        return Promise.resolve(loadedData[type]);
-      }
-
-      const filename = TYPE_TO_FILE[type];
-      if (!filename) {
-        return Promise.reject(new Error('未知资源类型'));
-      }
-
-      return fetch(`./${filename}?t=${Date.now()}`)
-        .then(res => {
-          if (!res.ok) throw new Error(`加载失败: ${filename}`);
-          return res.json();
-        })
+    function showUpdateNotice() {
+      fetch('./update.json?t=' + Date.now())
+        .then(r => r.json())
         .then(data => {
-          const items = Array.isArray(data) ? data : (data.items || []);
-          items.forEach(item => {
-            if (!item.type) item.type = type;
+          const updateTextEl = document.getElementById('updateText');
+          const banner = document.getElementById('updateBanner');
+          updateTextEl.innerHTML = '';
+
+          let messages = [];
+
+          if (typeof data.message === 'string') {
+            messages = [data.message];
+          } else if (Array.isArray(data.messages)) {
+            messages = data.messages;
+          } else {
+            return;
+          }
+
+          messages.forEach(msg => {
+            const div = document.createElement('div');
+            div.textContent = msg;
+            updateTextEl.appendChild(div);
           });
-          loadedData[type] = items;
-          return items;
-        });
+
+          banner.classList.remove('hidden');
+        })
+        .catch(() => {});
     }
 
-    // 显示清单视图
-    async function showListView(type) {
+    // ✅【关键修改】支持加载多个 data 文件
+    async function loadData() {
+      if (resources.length > 0) return;
+      loadingDiv.classList.remove('hidden');
+
+      // 👇 按需修改这里的文件列表
+      const dataFiles = [
+        './thai-novel.json',
+        './data2.json',
+        './data3.json',
+        './data4.json',
+        './data5.json'
+      ];
+
+      try {
+        const responses = await Promise.all(
+          dataFiles.map(url => fetch(url + '?t=' + Date.now()))
+        );
+
+        for (const res of responses) {
+          if (!res.ok) throw new Error(`加载失败: ${res.url}`);
+        }
+
+        const allData = await Promise.all(responses.map(res => res.json()));
+
+        resources = [];
+        for (const data of allData) {
+          if (Array.isArray(data)) {
+            resources.push(...data);
+          } else if (Array.isArray(data.items)) {
+            resources.push(...data.items);
+          }
+        }
+
+        loadingDiv.classList.add('hidden');
+        renderTypeNav();
+        showUpdateNotice();
+      } catch (err) {
+        console.error('加载多数据源失败:', err);
+        loadingDiv.innerHTML = `<p class="text-red-500 text-center">❌ 加载资源失败：${err.message || '未知错误'}</p>`;
+      }
+    }
+
+    function renderTypeNav() {
+      const types = [...new Set(resources.map(item => item.type).filter(t => t))];
+      typeNav.innerHTML = '';
+      if (types.length === 0) return;
+
+      let html = '<div class="flex flex-wrap justify-center gap-2">';
+      types.forEach(type => {
+        html += `
+          <button data-type="${type}"
+                  class="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition">
+             ${type}
+          </button>`;
+      });
+      html += '</div>';
+      typeNav.innerHTML = html;
+
+      typeNav.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const type = btn.dataset.type;
+          const today = getBeijingDate();
+          const lastVerified = localStorage.getItem('lastVerifiedListDate');
+
+          if (lastVerified === today) {
+            showListView(type);
+          } else {
+            const record = ACCESS_MAP[today];
+            if (!record) {
+              alert(`系统未配置 ${today} 的访问码，请稍后再试。`);
+              return;
+            }
+            document.getElementById('linkDate').textContent = today;
+            document.getElementById('accessLink').href = record.link;
+            accessModal.style.display = 'flex';
+            accessModal.dataset.pendingType = type;
+          }
+        });
+      });
+    }
+
+    function showListView(type) {
       currentListType = type;
       document.getElementById('listTitle').textContent = `${type}清单`;
       mainContainer.classList.add('hidden');
       listView.classList.remove('hidden');
-
-      try {
-        await loadTypeData(type);
-        renderListPage(1);
-      } catch (err) {
-        document.getElementById('groupedList').innerHTML = `<p class="text-red-500 text-center">❌ 加载失败：${err.message}</p>`;
-      }
+      renderListPage(1);
     }
 
-    // 渲染分页清单
     function renderListPage(page) {
-      const items = loadedData[currentListType] || [];
+      const items = resources.filter(item => item.type === currentListType);
       const groups = {};
 
       items.forEach(item => {
@@ -269,8 +337,10 @@
         } else {
           const item = entry.data;
           const links = getRandomValidLinks(item, 3);
+
           html += `<div class="bg-white p-4 rounded-lg shadow">
             <h4 class="font-semibold text-blue-600">${item.title}</h4>`;
+
           if (links.length > 0) {
             links.forEach((link, idx) => {
               html += `<a href="${link}" target="_blank" class="block mt-1 text-green-600">🔗 网盘 ${idx + 1}</a>`;
@@ -278,6 +348,7 @@
           } else {
             html += `<p class="text-gray-500 mt-1">暂无有效链接</p>`;
           }
+
           html += `</div>`;
         }
       });
@@ -314,138 +385,6 @@
       });
     }
 
-    // 全局搜索（跨类型）
-    async function performActualSearch(rawQuery) {
-      if (!rawQuery.trim()) {
-        resultsDiv.innerHTML = '';
-        noResultsDiv.classList.add('hidden');
-        return;
-      }
-
-      const query = cleanQuery(rawQuery);
-      if (!query) {
-        resultsDiv.innerHTML = '<p class="text-gray-500 text-center">请输入有效关键词</p>';
-        noResultsDiv.classList.add('hidden');
-        return;
-      }
-
-      loadingDiv.classList.remove('hidden');
-      resultsDiv.innerHTML = '';
-      noResultsDiv.classList.add('hidden');
-
-      try {
-        const allTypes = Object.keys(TYPE_TO_FILE);
-        const allItemsPromises = allTypes.map(type =>
-          loadTypeData(type).catch(() => [])
-        );
-        const allItemsArrays = await Promise.all(allItemsPromises);
-        const allItems = allItemsArrays.flat();
-
-        const hits = allItems.filter(item => {
-          const title = (item.title || '').toLowerCase().replace(/[\s\u2000-\u206F]/g, '');
-          const q = query.toLowerCase().replace(/[\s\u2000-\u206F]/g, '');
-          return title.includes(q);
-        });
-
-        renderSearchResults(hits);
-      } catch (err) {
-        resultsDiv.innerHTML = `<p class="text-red-500 text-center">搜索出错：${err.message}</p>`;
-      } finally {
-        loadingDiv.classList.add('hidden');
-      }
-    }
-
-    function renderSearchResults(hits) {
-      resultsDiv.innerHTML = '';
-      noResultsDiv.classList.toggle('hidden', hits.length > 0);
-
-      if (hits.length === 0) {
-        noResultsDiv.classList.remove('hidden');
-      } else {
-        hits.forEach(item => {
-          const links = getRandomValidLinks(item, 3);
-          let html = `<div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
-            <h2 class="text-xl font-semibold text-blue-600">${item.title} <span class="text-xs text-gray-500 ml-2">[${item.type}]</span></h2>`;
-          if (links.length > 0) {
-            links.forEach((link, idx) => {
-              html += `<a href="${link}" target="_blank" class="block mt-2 text-green-600">🔗 网盘 ${idx + 1}</a>`;
-            });
-          } else {
-            html += `<p class="text-gray-500 mt-2">暂无有效链接</p>`;
-          }
-          html += '</div>';
-          resultsDiv.innerHTML += html;
-        });
-      }
-    }
-
-    // 渲染类型导航按钮
-    function renderTypeNav() {
-      const types = Object.keys(TYPE_TO_FILE);
-      let html = '<div class="flex flex-wrap justify-center gap-2">';
-      types.forEach(type => {
-        html += `
-          <button data-type="${type}"
-                  class="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg transition">
-             ${type}
-          </button>`;
-      });
-      html += '</div>';
-      typeNav.innerHTML = html;
-
-      typeNav.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const type = btn.dataset.type;
-          const today = getBeijingDate();
-          const lastVerified = localStorage.getItem('lastVerifiedListDate');
-
-          if (lastVerified === today) {
-            showListView(type);
-          } else {
-            const record = ACCESS_MAP[today];
-            if (!record) {
-              alert(`系统未配置 ${today} 的访问码，请稍后再试。`);
-              return;
-            }
-            document.getElementById('linkDate').textContent = today;
-            document.getElementById('accessLink').href = record.link;
-            accessModal.style.display = 'flex';
-            accessModal.dataset.pendingType = type;
-          }
-        });
-      });
-    }
-
-    // 更新通知
-    function showUpdateNotice() {
-      fetch('./update.json?t=' + Date.now())
-        .then(r => r.json())
-        .then(data => {
-          const updateTextEl = document.getElementById('updateText');
-          const banner = document.getElementById('updateBanner');
-          updateTextEl.innerHTML = '';
-
-          let messages = [];
-          if (typeof data.message === 'string') {
-            messages = [data.message];
-          } else if (Array.isArray(data.messages)) {
-            messages = data.messages;
-          } else {
-            return;
-          }
-
-          messages.forEach(msg => {
-            const div = document.createElement('div');
-            div.textContent = msg;
-            updateTextEl.appendChild(div);
-          });
-
-          banner.classList.remove('hidden');
-        })
-        .catch(() => {});
-    }
-
-    // 事件绑定
     document.getElementById('backBtn').addEventListener('click', () => {
       listView.classList.add('hidden');
       mainContainer.classList.remove('hidden');
@@ -480,8 +419,58 @@
       }
     });
 
+    function performActualSearch(rawQuery) {
+      if (!resources || !rawQuery.trim()) {
+        resultsDiv.innerHTML = '';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
+
+      const query = cleanQuery(rawQuery);
+      if (!query) {
+        resultsDiv.innerHTML = '<p class="text-gray-500 text-center">请输入有效关键词</p>';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
+
+      const hits = resources.filter(item => {
+        const title = (item.title || '').toLowerCase().replace(/[\s\u2000-\u206F]/g, '');
+        const q = query.toLowerCase().replace(/[\s\u2000-\u206F]/g, '');
+        return title.includes(q);
+      });
+
+      resultsDiv.innerHTML = '';
+      noResultsDiv.classList.toggle('hidden', hits.length > 0);
+
+      if (hits.length === 0) {
+        noResultsDiv.classList.remove('hidden');
+      } else {
+        hits.forEach(item => {
+          const links = getRandomValidLinks(item, 3);
+          let html = `<div class="bg-white p-5 rounded-xl shadow hover:shadow-md transition">
+            <h2 class="text-xl font-semibold text-blue-600">${item.title}</h2>`;
+
+          if (links.length > 0) {
+            links.forEach((link, idx) => {
+              html += `<a href="${link}" target="_blank" class="block mt-2 text-green-600">🔗 网盘 ${idx + 1}</a>`;
+            });
+          } else {
+            html += `<p class="text-gray-500 mt-2">暂无有效链接</p>`;
+          }
+
+          html += '</div>';
+          resultsDiv.innerHTML += html;
+        });
+      }
+    }
+
     function handleUserSearch() {
       const query = searchInput.value.trim();
+      if (!query) {
+        resultsDiv.innerHTML = '';
+        noResultsDiv.classList.add('hidden');
+        return;
+      }
       performActualSearch(query);
     }
 
@@ -492,10 +481,8 @@
       }
     });
 
-    // 初始化
     window.addEventListener('DOMContentLoaded', () => {
-      renderTypeNav();
-      showUpdateNotice();
+      loadData();
     });
   </script>
 </body>
